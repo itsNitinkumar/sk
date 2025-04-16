@@ -1,0 +1,1 @@
+ALTER TABLE "doubts" DROP COLUMN "message";
