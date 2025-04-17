@@ -16,14 +16,19 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'res.cloudinary.com',  // For Cloudinary images
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'avatar.iran.liara.run',
       }
     ],
-    unoptimized: true // Add this if you want to skip image optimization
+    unoptimized: true
   },
 };
 
 export default nextConfig;
+
 
 
 

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { db } from '../db/index.ts';
-import { reviewsTable, coursesTable, transactionsTable } from '../db/schema.ts';
-import { eq, avg, desc, and, sql } from 'drizzle-orm';
+import { reviewsTable, coursesTable, transactionsTable, usersTable } from '../db/schema.ts';
+import { eq, avg, desc, and, sql, gte } from 'drizzle-orm';
 
 interface AuthenticatedRequest extends Request {
     user?: {
@@ -298,8 +298,63 @@ export const deleteReview = async (req: AuthenticatedRequest, res: Response) => 
     }
 };
 
+// Get top reviews across all courses
+export const getTopReviews = async (req: Request, res: Response) => {
+    try {
+        console.log('Attempting to fetch top reviews...');
 
+        // First fetch reviews with user data in a single query
+        const topReviews = await db
+            .select({
+                review: {
+                    id: reviewsTable.id,
+                    message: reviewsTable.message,
+                    rating: reviewsTable.rating,
+                    createdAt: reviewsTable.createdAt,
+                },
+                user: {
+                    id: usersTable.id,
+                    name: usersTable.name,
+                    email: usersTable.email,
+                }
+            })
+            .from(reviewsTable)
+            .leftJoin(usersTable, eq(reviewsTable.userId, usersTable.id))
+            .where(gte(reviewsTable.rating, 4))
+            .limit(10);
 
+        console.log('Reviews with user data:', topReviews);
+
+        // Transform the data into the expected format
+        const formattedReviews = topReviews.map(item => ({
+            id: item.review.id,
+            user: item.user?.name || item.user?.email?.split('@')[0] || 'Anonymous User',
+            avatar: '/default-avatar.png', // Default avatar
+            message: item.review.message,
+            rating: item.review.rating,
+            createdAt: item.review.createdAt,
+            role: "Student" // Default role
+        }));
+
+        return res.status(200).json({
+            success: true,
+            reviews: formattedReviews
+        });
+
+    } catch (error) {
+        console.error('Detailed error in getTopReviews:', {
+            error,
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
+        });
+
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching top reviews',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};
 
 
 

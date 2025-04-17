@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import Image from 'next/image';
@@ -7,7 +7,8 @@ import Link from 'next/link';
 import FAQ from '@/components/FAQ';
 import AnimatedTestimonials from '@/components/AnimatedTestimonials';
 import { useAuth } from '@/context/AuthContext';
-import { useRef } from "react";
+import reviewService from '@/services/review.service';
+import { Review } from '@/types';
 
 interface Learner {
   name: string;
@@ -31,33 +32,6 @@ interface SocialStat {
   color: string;
   link: string;
 }
-
-const testimonials = [
-  {
-    name: "Sarah Johnson",
-    role: "Software Engineer",
-    text: "The course content is incredibly well-structured and practical. I've learned so much!",
-    avatar: "/avatars/avatar-1.png" // Use local images in public/avatars/
-  },
-  {
-    name: "Michael Chen",
-    role: "Data Scientist",
-    text: "The hands-on projects really helped me understand complex concepts better.",
-    avatar: "/avatars/avatar-2.png"
-  },
-  {
-    name: "Emily Rodriguez",
-    role: "Web Developer",
-    text: "Great community and support. The instructors are very responsive.",
-    avatar: "/avatars/avatar-3.png"
-  },
-  {
-    name: "David Kim",
-    role: "Student",
-    text: "Perfect for beginners! The pace is just right and explanations are clear.",
-    avatar: "/avatars/avatar-4.png"
-  }
-];
 
 const coderShineData = [
   {
@@ -130,6 +104,121 @@ const FloatingLearners = () => {
 };
 
 export default function HomePage() {
+  const [testimonials, setTestimonials] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start end", "end start"]
+  });
+
+  const smoothProgress = useSpring(scrollYProgress, {
+    damping: 15,
+    stiffness: 30
+  });
+
+  // Create transforms outside the mapping function
+  const createTransforms = (index: number, isLeft: boolean) => {
+    const yTransform = useTransform(
+      smoothProgress,
+      [0, 1],
+      [0, isLeft ? -100 * (index + 1) : 100 * (index + 1)]
+    );
+    
+    const xTransform = useTransform(
+      smoothProgress,
+      [0, 1],
+      [0, isLeft ? (index % 2 === 0 ? -20 : 20) : (index % 2 === 0 ? 20 : -20)]
+    );
+
+    return { yTransform, xTransform };
+  };
+
+  // Separate components for left and right testimonials
+  const LeftTestimonial = ({ testimonial, index }: { testimonial: Review; index: number }) => {
+    const { yTransform, xTransform } = createTransforms(index, true);
+    
+    return (
+      <motion.div
+        className="bg-[#1A1A1A] rounded-xl p-8 hover:bg-[#2A2A2A] transition-all duration-300"
+        style={{
+          y: yTransform,
+          x: xTransform
+        }}
+        initial={{ opacity: 0, y: 50 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: false, margin: "-100px" }}
+        whileHover={{ scale: 1.02, rotate: -1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="flex items-start gap-4">
+          <img
+            src={testimonial.avatar}
+            alt={testimonial.name}
+            className="w-12 h-12 rounded-full border-2 border-[#FF6B47]"
+          />
+          <div>
+            <h4 className="text-white font-semibold">{testimonial.name}</h4>
+            <p className="text-[#FF6B47]">{testimonial.role}</p>
+            <p className="text-gray-300 mt-4">{testimonial.text}</p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  const RightTestimonial = ({ testimonial, index }: { testimonial: Review; index: number }) => {
+    const { yTransform, xTransform } = createTransforms(index, false);
+    
+    return (
+      <motion.div
+        className="bg-[#1A1A1A] rounded-xl p-8 hover:bg-[#2A2A2A] transition-all duration-300"
+        style={{
+          y: yTransform,
+          x: xTransform
+        }}
+        initial={{ opacity: 0, y: -50 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: false, margin: "-100px" }}
+        whileHover={{ scale: 1.02, rotate: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="flex items-start gap-4">
+          <img
+            src={testimonial.avatar}
+            alt={testimonial.name}
+            className="w-12 h-12 rounded-full border-2 border-[#FF6B47]"
+          />
+          <div>
+            <h4 className="text-white font-semibold">{testimonial.name}</h4>
+            <p className="text-[#FF6B47]">{testimonial.role}</p>
+            <p className="text-gray-300 mt-4">{testimonial.text}</p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      try {
+        setIsLoading(true);
+        const response = await reviewService.getTopReviews();
+        
+        if (response?.success && Array.isArray(response.reviews)) {
+          // Directly use the reviews array since it already has the correct format
+          setTestimonials(response.reviews);
+        }
+      } catch (error) {
+        console.error('Failed to fetch testimonials:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTestimonials();
+  }, []);
+
   const [statsRef, statsInView] = useInView({
     triggerOnce: true,
     threshold: 0.2,
@@ -270,18 +359,6 @@ export default function HomePage() {
     }
   ];
 
-  const containerRef = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start end", "end start"]
-  });
-
-  // Smooth spring animation for scroll progress
-  const smoothProgress = useSpring(scrollYProgress, {
-    damping: 15,
-    stiffness: 30
-  });
-
   const { user, loading } = useAuth();
 
   useEffect(() => {
@@ -289,7 +366,7 @@ export default function HomePage() {
   }, [user]);
 
   return (
-    <main className="min-h-screen bg-black">
+    <main className="min-h-screen bg-black relative">
       {/* Hero Section */}
       <section className="pt-32 pb-16 relative h-screen">
         <motion.div 
@@ -565,117 +642,42 @@ export default function HomePage() {
           </motion.div>
         </div>
 
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-            {/* Left Column - Scrolls Up */}
-            <div className="space-y-8">
-              {testimonials.filter((_, i) => i % 2 === 0).map((testimonial, index) => (
-                <motion.div
-                  key={index}
-                  className="bg-[#1A1A1A] rounded-xl p-8 hover:bg-[#2A2A2A] transition-all duration-300"
-                  style={{
-                    y: useTransform(
-                      smoothProgress,
-                      [0, 1],
-                      [0, -100 * (index + 1)]
-                    ),
-                    x: useTransform(
-                      smoothProgress,
-                      [0, 1],
-                      [0, index % 2 === 0 ? -20 : 20]
-                    )
-                  }}
-                  initial={{ opacity: 0, y: 50 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: false, margin: "-100px" }}
-                  whileHover={{ scale: 1.02, rotate: -1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="flex items-start gap-4">
-                    <img
-                      src={testimonial.avatar}
-                      alt={testimonial.name}
-                      className="w-12 h-12 rounded-full border-2 border-[#FF6B47]"
-                    />
-                    <div>
-                      <h4 className="text-white font-semibold">{testimonial.name}</h4>
-                      <p className="text-[#FF6B47]">{testimonial.role}</p>
-                      <p className="text-gray-300 mt-4">{testimonial.text}</p>
+        <div className="container mx-auto px-4 relative">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto relative">
+            {testimonials.map((testimonial, index) => (
+              <motion.div
+                key={testimonial.id}
+                className="bg-[#1A1A1A] rounded-lg p-6 text-white hover:bg-[#2A2A2A] transition-colors relative"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <div className="flex items-start gap-4">
+                  <Image
+                    src={testimonial.avatar || DEFAULT_AVATAR}
+                    alt={`${testimonial.user}'s avatar`}
+                    width={48}
+                    height={48}
+                    className="rounded-full object-cover"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.src = DEFAULT_AVATAR;
+                    }}
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-white">{testimonial.user}</h3>
+                    <div className="flex items-center gap-1 mt-1">
+                      {[...Array(testimonial.rating)].map((_, i) => (
+                        <span key={i} className="text-[#FF6B47]">★</span>
+                      ))}
                     </div>
+                    <p className="mt-3 text-gray-200">{testimonial.message}</p>
                   </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Right Column - Scrolls Down */}
-            <div className="space-y-8 mt-12 md:mt-24">
-              {testimonials.filter((_, i) => i % 2 === 1).map((testimonial, index) => (
-                <motion.div
-                  key={index}
-                  className="bg-[#1A1A1A] rounded-xl p-8 hover:bg-[#2A2A2A] transition-all duration-300"
-                  style={{
-                    y: useTransform(
-                      smoothProgress,
-                      [0, 1],
-                      [0, 100 * (index + 1)]
-                    ),
-                    x: useTransform(
-                      smoothProgress,
-                      [0, 1],
-                      [0, index % 2 === 0 ? 20 : -20]
-                    )
-                  }}
-                  initial={{ opacity: 0, y: -50 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: false, margin: "-100px" }}
-                  whileHover={{ scale: 1.02, rotate: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="flex items-start gap-4">
-                    <img
-                      src={testimonial.avatar}
-                      alt={testimonial.name}
-                      className="w-12 h-12 rounded-full border-2 border-[#FF6B47]"
-                    />
-                    <div>
-                      <h4 className="text-white font-semibold">{testimonial.name}</h4>
-                      <p className="text-[#FF6B47]">{testimonial.role}</p>
-                      <p className="text-gray-300 mt-4">{testimonial.text}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </div>
-
-        {/* Floating particles */}
-        <motion.div
-          className="absolute inset-0 pointer-events-none"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1 }}
-        >
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-2 h-2 bg-[#FF6B47] rounded-full"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-              }}
-              animate={{
-                y: [0, -100, 0],
-                opacity: [0, 1, 0],
-              }}
-              transition={{
-                duration: Math.random() * 3 + 2,
-                repeat: Infinity,
-                delay: Math.random() * 2,
-              }}
-            />
-          ))}
-        </motion.div>
       </section>
 
       {/* FAQ Section */}
@@ -737,22 +739,7 @@ export default function HomePage() {
 //   );
 // };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+const DEFAULT_AVATAR = '/images/default-avatar.png';
 
 
 
