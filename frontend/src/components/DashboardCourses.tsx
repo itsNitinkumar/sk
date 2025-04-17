@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
+import { Course } from '@/types';
 
-export default function DashboardCourses({ courses }) {
+export default function DashboardCourses({ courses }: { courses: Course[] }) {
   const { user } = useAuth();
 
   return (
@@ -21,7 +22,7 @@ export default function DashboardCourses({ courses }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {courses.map((course) => (
+        {courses.map((course: Course) => (
           <div key={course.id} className="bg-gray-800 rounded-xl p-6">
             <h3 className="text-xl font-bold">{course.name}</h3>
             <div className="mt-4">

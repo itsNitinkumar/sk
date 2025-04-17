@@ -150,6 +150,7 @@ export interface Review {
   createdAt: string;
   userId: string;
   courseId: string;
+  isOwner?: boolean;
 }
 
 // Transaction related types
@@ -222,6 +223,7 @@ export interface AdminLog {
   metadata?: any;
   createdAt: Date;
 }
+
 
 
 
